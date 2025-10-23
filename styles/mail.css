@@ -1,0 +1,89 @@
+.mail-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--md-sys-spacing-sm);
+}
+
+.mail-section__header h2 {
+  margin: 0;
+  font-size: var(--md-sys-typescale-title-medium-size);
+  line-height: var(--md-sys-typescale-title-medium-line-height);
+}
+
+.mail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--md-sys-spacing-md);
+}
+
+.mail-card {
+  background: var(--md-sys-color-surface-container);
+  border-radius: var(--md-sys-shape-corner-medium);
+  padding: var(--md-sys-spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--md-sys-spacing-sm);
+  position: relative;
+  box-shadow: var(--md-sys-elevation-level1);
+  transition: transform var(--md-sys-motion-duration-short) var(--md-sys-motion-easing-standard),
+    box-shadow var(--md-sys-motion-duration-short) var(--md-sys-motion-easing-standard);
+}
+
+.mail-card:hover,
+.mail-card:focus-within {
+  transform: translateY(-2px);
+  box-shadow: var(--md-sys-elevation-level2);
+}
+
+.mail-card__actions {
+  position: absolute;
+  inset-block-start: var(--md-sys-spacing-sm);
+  inset-inline-end: var(--md-sys-spacing-sm);
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity var(--md-sys-motion-duration-short) var(--md-sys-motion-easing-standard);
+}
+
+.mail-card:hover .mail-card__actions,
+.mail-card:focus-within .mail-card__actions {
+  opacity: 1;
+}
+
+.mail-card__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--md-sys-spacing-xs);
+  font-size: var(--md-sys-typescale-body-medium-size);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.mail-card__subject {
+  font-weight: 600;
+  font-size: var(--md-sys-typescale-body-large-size);
+}
+
+.mail-card__snippet {
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: var(--md-sys-typescale-body-medium-size);
+}
+
+.mail-card__sender {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.mail-card__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+  font-size: 0.75rem;
+}
