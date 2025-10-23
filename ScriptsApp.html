@@ -1,0 +1,40 @@
+<script>
+(function(window) {
+  function ready() {
+    const global = window.NexusHub || {};
+    const theme = global.core && global.core.theme;
+    const modal = global.core && global.core.modal;
+    const modules = global.modules || {};
+
+    theme?.initThemeToggle(document.getElementById('themeToggle'));
+    modules.mail?.init();
+    modules.chat?.init();
+    modules.calendar?.init();
+    modules.todo?.init();
+    modules.linkFolders?.init();
+    modules.timer?.init();
+
+    const backdrop = document.getElementById('modalBackdrop');
+    if (backdrop && modal) {
+      backdrop.addEventListener('click', (event) => {
+        if (event.target === backdrop) {
+          modal.closeModal('modalBackdrop');
+        }
+      });
+      const closeButton = backdrop.querySelector('[data-modal-close]');
+      closeButton?.addEventListener('click', () => modal.closeModal('modalBackdrop'));
+    }
+
+    document.getElementById('manageFolders')?.addEventListener('click', () => {
+      const content = document.getElementById('modalContent');
+      const title = document.getElementById('modalTitle');
+      if (!content || !title || !modal) return;
+      title.textContent = 'フォルダ管理';
+      content.innerHTML = '<p>フォルダの新規作成・編集・削除は現在UI刷新中です。</p>';
+      modal.openModal('modalBackdrop');
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', ready);
+})(window);
+</script>
