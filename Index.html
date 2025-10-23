@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NexusHub v6</title>
   <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAACyUlEQVR4nO2Za2vUQBSG+1MU/KJ4Qc0m2V0r1WKV1mKlKCoURUVRCipKoSiKFYqiohS2dnvbXu3eL/2DxwQaqcsm805K8oKdD++33ZnzPExmzjB9R44ek8OcPnYB7BgB7ALYMQLYBbBjBLALYMcIYBfAjhHALoAdI4BdADtGALsAdmILyBd2JD+/Jbn5Dcn9KnlZkdzCouSKC5ItFiS7OOfl54ELzGw99vJQMtv3xdqeEOv3PS93xNq5JVZ5XJzyTcmVxwgCAPjs0ndxl74eUIAavr98I30BKLy7/NnLbHwBAPxAZZQgQAPeXfkUu0AEfrBynSEAh3dXP4qz+j6eAAB+qDJCEKAJ75TexhSghh+uDhMEaMI7pWlx1qb0BQDwo9Vr6QvQWfYBvL32Ruz1V3oCAPix6lWCAM1lH8Db6y+05kHgx2tDDAHYsv8rYA/e3pgUe/M5PA8Cf7t2hSAgxjcfwGc2n8LzIPB3a4PpC0Dg/WX/j4A9+KC9ReZB4CfqlwkCAPheG153b6+aB4F/UL/EEKCGD9vw9re3qnkQ+Ef1AYIAAN7/5nv9t7u9jZoHgX/SuEgQAMBH7fbdHV7Y7xD4Z43+9AUg8FG7PXqfR+AnGxcIAgB4f8OLHAO40iLwL5t5hgA1PHLUqa60CPzrZpYgAID3d3vVOKpbHQI/1XTTF4DAI+e8n6iLDQI/3XQIAgB45JwPEnaxQeDftWyGADW8f9Sh44X19gj8h5ZFEADAq5qc7vTq7RH4mdZ5ggAA3j/ndcbs1d4i8LPtc+kLQOCjOrywoN/8fvgv7bMEAQm+2OjCf2ufYQhI7sVGF/5H5zRBQMIvNjrwc51T6QtI+sVGB77QOUkQkPCLjR8Uvrh7giEg2RebIAj88u7x9AX8LzEC2AWwYwSwC2DHCGAXwI4RwC6AHSOAXQA7RgC7AHaMAHYB7Bx6AX8AbYDV9k/vnXwAAAAASUVORK5CYII=">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    rel="stylesheet"
-    href="https://fonts.googleapis.com/css2?family=Google+Sans+Text:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap"
-  >
-  <?!= include('StylesTokens'); ?>
-  <?!= include('StylesIndex'); ?>
+  <link rel="stylesheet" href="styles/tokens.css">
+  <link rel="stylesheet" href="styles/app.css">
+  <link rel="stylesheet" href="styles/mail.css">
+  <link rel="stylesheet" href="styles/chat.css">
+  <link rel="stylesheet" href="styles/calendar.css">
+  <link rel="stylesheet" href="styles/todo.css">
+  <link rel="stylesheet" href="styles/link-folders.css">
+  <link rel="stylesheet" href="styles/modal.css">
 </head>
 <body>
   <main class="main-shell" role="main">
@@ -232,8 +232,8 @@
     </article>
   </dialog>
 
-  <?!= include('ScriptsCore'); ?>
-  <?!= include('ScriptsModules'); ?>
-  <?!= include('ScriptsApp'); ?>
+  <script src="https://fonts.googleapis.com/icon?family=Material+Icons" async></script>
+  <script src="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:wght@300;400;500;600;700&display=swap" async></script>
+  <script type="module" src="scripts/app.js" defer></script>
 </body>
 </html>

@@ -6,14 +6,6 @@ const PROPERTY_KEYS = {
 };
 
 /**
- * @param {string} filename
- * @return {string}
- */
-function include(filename) {
-  return HtmlService.createHtmlOutputFromFile(filename).getContent();
-}
-
-/**
  * @param {any=} data
  * @return {{success: true, data: any}}
  */

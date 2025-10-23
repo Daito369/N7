@@ -1,0 +1,68 @@
+.todo-section__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--md-sys-spacing-sm);
+}
+
+.todo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--md-sys-spacing-md);
+}
+
+.todo-card {
+  border-radius: var(--md-sys-shape-corner-medium);
+  background: var(--md-sys-color-surface-container);
+  padding: var(--md-sys-spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--md-sys-spacing-sm);
+  position: relative;
+  box-shadow: var(--md-sys-elevation-level1);
+  transition: transform var(--md-sys-motion-duration-short) var(--md-sys-motion-easing-standard),
+    box-shadow var(--md-sys-motion-duration-short) var(--md-sys-motion-easing-standard);
+}
+
+.todo-card:hover,
+.todo-card:focus-within {
+  transform: translateY(-2px);
+  box-shadow: var(--md-sys-elevation-level2);
+}
+
+.todo-card[data-completed='true'] {
+  opacity: 0.6;
+  text-decoration: line-through;
+}
+
+.todo-card__actions {
+  position: absolute;
+  inset-block-start: var(--md-sys-spacing-sm);
+  inset-inline-end: var(--md-sys-spacing-sm);
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity var(--md-sys-motion-duration-short) var(--md-sys-motion-easing-standard);
+}
+
+.todo-card:hover .todo-card__actions,
+.todo-card:focus-within .todo-card__actions {
+  opacity: 1;
+}
+
+.todo-card__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--md-sys-spacing-xs);
+  font-size: var(--md-sys-typescale-body-medium-size);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.todo-card__title {
+  font-weight: 600;
+}
+
+.todo-card__notes {
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: var(--md-sys-typescale-body-medium-size);
+}
