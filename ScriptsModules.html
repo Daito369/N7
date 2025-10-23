@@ -1,0 +1,1043 @@
+<script>
+(function(window) {
+  const global = window.NexusHub = window.NexusHub || {};
+  global.modules = global.modules || {};
+  const modules = global.modules;
+  const core = global.core || {};
+
+  (function() {
+    const callServer = core.api.callServer;
+    const fetchAndRender = core.api.fetchAndRender;
+
+    function renderMail(payload) {
+      const unreadCount = payload.unreadCount || 0;
+      const emails = Array.isArray(payload.emails) ? payload.emails : [];
+      const mailBadge = document.getElementById('mailBadge');
+      const mailList = document.getElementById('mailList');
+      const empty = document.getElementById('mailEmptyState');
+      if (mailBadge) {
+        mailBadge.textContent = unreadCount;
+      }
+      if (!mailList || !empty) {
+        return;
+      }
+      mailList.innerHTML = '';
+      if (!emails.length) {
+        empty.hidden = false;
+        return;
+      }
+      empty.hidden = true;
+      const template = document.getElementById('emailCardTemplate');
+      emails.forEach((mail) => {
+        if (!template || !template.content.firstElementChild) return;
+        const node = template.content.firstElementChild.cloneNode(true);
+        const from = node.querySelector('[data-field="from"]');
+        const subject = node.querySelector('[data-field="subject"]');
+        const snippet = node.querySelector('[data-field="snippet"]');
+        const count = node.querySelector('[data-field="messageCount"]');
+        const date = node.querySelector('[data-field="date"]');
+        if (from) from.textContent = mail.from;
+        if (subject) subject.textContent = mail.subject;
+        if (snippet) snippet.textContent = mail.snippet;
+        if (count) count.textContent = `${mail.messageCount} 件`;
+        if (date) {
+          date.textContent = new Intl.DateTimeFormat('ja-JP', {
+            dateStyle: 'short',
+            timeStyle: 'short',
+          }).format(new Date(mail.date));
+        }
+        node.dataset.threadId = mail.threadId;
+        mailList.appendChild(node);
+      });
+    }
+
+    function initMail() {
+      fetchAndRender({
+        fetcher: () =>
+          callServer('getGmailData').then((response) => {
+            if (response.success && !response.data) {
+              response.data = {
+                unreadCount: response.unreadCount ?? 0,
+                emails: response.latestEmails ?? response.emails ?? [],
+              };
+            }
+            if (!response.success && !response.error && response.message) {
+              response.error = response.message;
+            }
+            return response;
+          }),
+        renderer: (data) =>
+          renderMail({ unreadCount: data.unreadCount ?? 0, emails: data.emails ?? data.latestEmails ?? [] }),
+        onError: (message) => {
+          const empty = document.getElementById('mailEmptyState');
+          if (empty) {
+            empty.textContent = message;
+            empty.hidden = false;
+          }
+        },
+        onLoading: () => {
+          const badge = document.getElementById('mailBadge');
+          if (badge) {
+            badge.textContent = '…';
+          }
+        },
+      });
+
+      const mailList = document.getElementById('mailList');
+      if (!mailList) return;
+      mailList.addEventListener('click', (event) => {
+        const action = event.target.closest('[data-action]');
+        if (!action) return;
+        const card = action.closest('.mail-card');
+        const threadId = card && card.dataset ? card.dataset.threadId : undefined;
+        switch (action.dataset.action) {
+          case 'open':
+            if (threadId && window.open) {
+              window.open(`https://mail.google.com/mail/u/0/#inbox/${threadId}`, '_blank', 'noopener');
+            }
+            break;
+          case 'archive':
+            if (threadId) {
+              callServer('archiveThread', { threadId });
+            }
+            if (card) {
+              card.setAttribute('data-archived', 'true');
+            }
+            break;
+          case 'markRead':
+            if (threadId) {
+              callServer('markThreadAsRead', { threadId });
+            }
+            if (card) {
+              card.setAttribute('data-read', 'true');
+            }
+            break;
+          default:
+            break;
+        }
+      });
+
+      mailList.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          const target = event.target.closest('[role="listitem"]');
+          if (target) {
+            event.preventDefault();
+            const openButton = target.querySelector('[data-action="open"]');
+            openButton?.click();
+          }
+        }
+      });
+    }
+
+    modules.mail = { init: initMail };
+  })();
+
+  (function() {
+    const callServer = core.api.callServer;
+    const fetchAndRender = core.api.fetchAndRender;
+    const state = {
+      conversations: [],
+      filter: { unread: true, dm: false, spaces: false },
+      search: '',
+      activeTab: 'dm',
+    };
+
+    function applyLayoutMode() {
+      const container = document.getElementById('chatColumns');
+      if (!container) return;
+      if (window.innerWidth < 768) {
+        container.dataset.mode = 'tabs';
+        container.dataset.active = state.activeTab;
+      } else {
+        container.dataset.mode = 'columns';
+        container.removeAttribute('data-active');
+      }
+    }
+
+    function filterConversations() {
+      const keyword = state.search.trim().toLowerCase();
+      return state.conversations.filter((chat) => {
+        if (state.filter.unread && chat.unread === 0) return false;
+        if (state.filter.dm && chat.type !== 'dm') return false;
+        if (state.filter.spaces && chat.type !== 'spaces') return false;
+        if (keyword) {
+          const text = `${chat.title} ${chat.snippet} ${chat.author}`.toLowerCase();
+          if (!text.includes(keyword)) {
+            return false;
+          }
+        }
+        return true;
+      });
+    }
+
+    function renderChat() {
+      const filtered = filterConversations();
+      const dmList = document.getElementById('chatDmList');
+      const spaceList = document.getElementById('chatSpacesList');
+      if (!dmList || !spaceList) return;
+      dmList.innerHTML = '';
+      spaceList.innerHTML = '';
+      const template = document.getElementById('chatItemTemplate');
+      filtered.forEach((chat) => {
+        if (!template || !template.content.firstElementChild) return;
+        const node = template.content.firstElementChild.cloneNode(true);
+        node.dataset.chatId = chat.id;
+        const unread = node.querySelector('[data-field="unread"]');
+        const title = node.querySelector('[data-field="title"]');
+        const snippet = node.querySelector('[data-field="snippet"]');
+        if (unread) unread.textContent = `${chat.unread}`;
+        if (title) title.textContent = chat.title;
+        if (snippet) snippet.textContent = chat.snippet;
+        const openAction = node.querySelector('.chat-item__actions [data-action="open"]');
+        const markAction = node.querySelector('.chat-item__actions [data-action="markRead"]');
+        if (openAction) openAction.dataset.url = chat.url;
+        if (markAction) markAction.dataset.url = chat.url;
+        const parentList = chat.type === 'dm' ? dmList : spaceList;
+        parentList.appendChild(node);
+      });
+      const empty = document.getElementById('chatEmptyState');
+      if (empty) {
+        empty.hidden = filtered.length > 0;
+      }
+    }
+
+    function initFilters() {
+      document.querySelectorAll('.chat-filters button').forEach((button) => {
+        button.addEventListener('click', () => {
+          const filter = button.dataset.filter;
+          if (filter === 'unread') {
+            state.filter.unread = !state.filter.unread;
+          } else if (filter === 'dm') {
+            state.filter.dm = !state.filter.dm;
+          } else if (filter === 'spaces') {
+            state.filter.spaces = !state.filter.spaces;
+          }
+          button.setAttribute('aria-pressed', state.filter[filter]);
+          renderChat();
+        });
+      });
+    }
+
+    function initSearch() {
+      const field = document.getElementById('chatSearch');
+      if (!field) return;
+      field.addEventListener('input', (event) => {
+        state.search = event.target.value;
+        renderChat();
+      });
+      field.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          field.value = '';
+          state.search = '';
+          renderChat();
+        }
+      });
+    }
+
+    function initTabs() {
+      const container = document.getElementById('chatColumns');
+      if (!container) return;
+      container.addEventListener('click', (event) => {
+        if (container.dataset.mode !== 'tabs') return;
+        const column = event.target.closest('.chat-column');
+        if (column) {
+          state.activeTab = column.dataset.type;
+          container.dataset.active = state.activeTab;
+        }
+      });
+    }
+
+    function initActions() {
+      const columns = document.getElementById('chatColumns');
+      if (!columns) return;
+      columns.addEventListener('click', (event) => {
+        const action = event.target.closest('[data-action]');
+        if (!action) return;
+        const chatItem = action.closest('.chat-item');
+        const chatId = chatItem && chatItem.dataset ? chatItem.dataset.chatId : undefined;
+        switch (action.dataset.action) {
+          case 'open':
+            if (action.dataset.url) {
+              window.open(action.dataset.url, '_blank', 'noopener');
+            }
+            break;
+          case 'markRead':
+            if (chatId) {
+              callServer('markChatAsRead', { chatId }).then(() => {
+                chatItem?.setAttribute('data-read', 'true');
+              });
+            }
+            break;
+          default:
+            break;
+        }
+      });
+
+      columns.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          const item = event.target.closest('.chat-item');
+          if (item) {
+            event.preventDefault();
+            const openButton = item.querySelector('[data-action="open"]');
+            openButton?.click();
+          }
+        }
+        if (event.key === ' ') {
+          const item = event.target.closest('.chat-item');
+          if (item) {
+            event.preventDefault();
+            const readButton = item.querySelector('[data-action="markRead"]');
+            readButton?.click();
+          }
+        }
+      });
+    }
+
+    function initChat() {
+      fetchAndRender({
+        fetcher: () => callServer('getChatData'),
+        renderer: (data) => {
+          const list = Array.isArray(data?.conversations) ? data.conversations : [];
+          state.conversations = list.map((conversation) => ({
+            id: conversation.id,
+            title: conversation.title,
+            snippet: conversation.snippet,
+            unread: conversation.unreadCount ?? conversation.unread ?? 0,
+            url: conversation.url,
+            author: conversation.author,
+            type: conversation.classification || conversation.type || 'dm',
+          }));
+          renderChat();
+        },
+        onError: (message) => {
+          const empty = document.getElementById('chatEmptyState');
+          if (empty) {
+            empty.textContent = message;
+            empty.hidden = false;
+          }
+        },
+        onLoading: () => {
+          const empty = document.getElementById('chatEmptyState');
+          if (empty) {
+            empty.textContent = '読み込み中…';
+            empty.hidden = false;
+          }
+        },
+      });
+
+      initFilters();
+      initSearch();
+      initTabs();
+      initActions();
+      applyLayoutMode();
+      window.addEventListener('resize', applyLayoutMode);
+    }
+
+    modules.chat = { init: initChat };
+  })();
+
+  (function() {
+    const callServer = core.api.callServer;
+    const fetchAndRender = core.api.fetchAndRender;
+    const state = {
+      view: 'month',
+      eventsByDate: new Map(),
+    };
+
+    function detectDefaultView() {
+      return window.innerWidth < 768 ? 'week' : 'month';
+    }
+
+    function buildCalendarGrid() {
+      const grid = document.getElementById('calendarGrid');
+      if (!grid) return;
+      grid.dataset.view = state.view;
+      grid.innerHTML = '';
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const totalDays = state.view === 'month' ? end.getDate() : 7;
+      const startDate = state.view === 'month' ? start : now;
+      for (let i = 0; i < totalDays; i++) {
+        const date = new Date(startDate);
+        if (state.view === 'week') {
+          date.setDate(now.getDate() - now.getDay() + i);
+        } else {
+          date.setDate(i + 1);
+        }
+        const iso = date.toISOString().split('T')[0];
+        const cell = document.createElement('button');
+        cell.type = 'button';
+        cell.className = 'calendar-cell';
+        cell.dataset.date = iso;
+        cell.setAttribute('aria-label', `${date.getMonth() + 1}月${date.getDate()}日`);
+        cell.innerHTML = `
+          <div class="calendar-cell__header">
+            <span>${date.getDate()}</span>
+            <span class="calendar-event-indicator" hidden data-field="indicator"></span>
+          </div>
+          <div class="calendar-cell__events" data-field="events"></div>
+        `;
+        grid.appendChild(cell);
+      }
+    }
+
+    function renderEvents() {
+      document.querySelectorAll('.calendar-cell').forEach((cell) => {
+        const dateKey = cell.dataset.date;
+        const events = state.eventsByDate.get(dateKey) || [];
+        const indicator = cell.querySelector('[data-field="indicator"]');
+        const list = cell.querySelector('[data-field="events"]');
+        if (list) {
+          list.innerHTML = '';
+        }
+        if (events.length) {
+          if (indicator) {
+            indicator.hidden = false;
+            indicator.textContent = `${events.length} 件`;
+          }
+          events.slice(0, 2).forEach((event) => {
+            const item = document.createElement('span');
+            item.className = 'calendar-event-indicator';
+            item.textContent = event.title;
+            list?.appendChild(item);
+          });
+        } else if (indicator) {
+          indicator.hidden = true;
+        }
+      });
+    }
+
+    function openEventModal(dateKey) {
+      const events = state.eventsByDate.get(dateKey) || [];
+      const container = document.getElementById('calendarEventList');
+      if (!container) return;
+      container.innerHTML = '';
+      if (!events.length) {
+        container.innerHTML = '<p>予定はありません。</p>';
+      } else {
+        events.forEach((event, index) => {
+          const card = document.createElement('article');
+          card.className = 'calendar-event-card';
+          card.style.animationDelay = `${index * 40}ms`;
+          card.innerHTML = `
+            <header style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;">
+              <h3 style="margin:0;font-size:1rem;">${event.title}</h3>
+              <span>${new Intl.DateTimeFormat('ja-JP', { timeStyle: 'short' }).format(new Date(event.start))}</span>
+            </header>
+            <p style="margin:0;color:var(--md-sys-color-on-surface-variant);">${event.description || ''}</p>
+          `;
+          container.appendChild(card);
+        });
+      }
+      const modal = document.getElementById('calendarModal');
+      if (modal && typeof modal.showModal === 'function') {
+        modal.dataset.date = dateKey;
+        modal.showModal();
+      }
+    }
+
+    function initCalendarInteractions() {
+      const grid = document.getElementById('calendarGrid');
+      if (!grid) return;
+      grid.addEventListener('click', (event) => {
+        const cell = event.target.closest('.calendar-cell');
+        if (cell) {
+          openEventModal(cell.dataset.date);
+        }
+      });
+      const closeButton = document.querySelector('[data-calendar-close]');
+      if (closeButton) {
+        closeButton.addEventListener('click', () => {
+          const modal = document.getElementById('calendarModal');
+          modal?.close();
+        });
+      }
+      const modal = document.getElementById('calendarModal');
+      if (modal) {
+        modal.addEventListener('cancel', (event) => {
+          event.preventDefault();
+          modal.close();
+        });
+      }
+    }
+
+    function initViewToggle() {
+      document.querySelectorAll('.calendar-toolbar__controls button').forEach((button) => {
+        button.addEventListener('click', () => {
+          const nextView = button.dataset.view;
+          state.view = nextView;
+          document.querySelectorAll('.calendar-toolbar__controls button').forEach((b) => {
+            b.setAttribute('aria-pressed', b.dataset.view === state.view);
+          });
+          buildCalendarGrid();
+          renderEvents();
+        });
+      });
+    }
+
+    function initCalendar() {
+      state.view = detectDefaultView();
+      document.querySelectorAll('.calendar-toolbar__controls button').forEach((button) => {
+        button.setAttribute('aria-pressed', button.dataset.view === state.view);
+      });
+      buildCalendarGrid();
+      initCalendarInteractions();
+      initViewToggle();
+
+      fetchAndRender({
+        fetcher: () => callServer('getCalendarEvents'),
+        renderer: (data) => {
+          state.eventsByDate.clear();
+          (data?.events || []).forEach((event) => {
+            const dateKey = new Date(event.start).toISOString().split('T')[0];
+            if (!state.eventsByDate.has(dateKey)) {
+              state.eventsByDate.set(dateKey, []);
+            }
+            state.eventsByDate.get(dateKey).push(event);
+          });
+          renderEvents();
+        },
+        onError: (message) => {
+          const grid = document.getElementById('calendarGrid');
+          if (grid) {
+            grid.innerHTML = `<p>${message}</p>`;
+          }
+        },
+      });
+    }
+
+    modules.calendar = { init: initCalendar };
+  })();
+
+  (function() {
+    const callServer = core.api.callServer;
+    const fetchAndRender = core.api.fetchAndRender;
+    const modal = core.modal;
+    const state = {
+      todos: [],
+    };
+
+    function generateId() {
+      if (window.crypto && window.crypto.randomUUID) {
+        return window.crypto.randomUUID();
+      }
+      return `todo-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    }
+
+    function renderTodo() {
+      const container = document.getElementById('todoList');
+      const emptyState = document.getElementById('todoEmptyState');
+      if (!container || !emptyState) return;
+      container.innerHTML = '';
+      const template = document.getElementById('todoCardTemplate');
+      if (!state.todos.length) {
+        emptyState.hidden = false;
+        return;
+      }
+      emptyState.hidden = true;
+      state.todos.forEach((todo) => {
+        if (!template || !template.content.firstElementChild) return;
+        const node = template.content.firstElementChild.cloneNode(true);
+        node.dataset.id = todo.id;
+        node.dataset.completed = String(todo.completed);
+        const title = node.querySelector('[data-field="title"]');
+        const due = node.querySelector('[data-field="due"]');
+        const listName = node.querySelector('[data-field="listName"]');
+        const note = node.querySelector('[data-field="note"]');
+        const checkbox = node.querySelector('input[type="checkbox"]');
+        if (title) title.textContent = todo.title;
+        if (due) {
+          due.textContent = todo.due
+            ? new Intl.DateTimeFormat('ja-JP', { dateStyle: 'medium' }).format(new Date(todo.due))
+            : '期限なし';
+        }
+        if (listName) listName.textContent = todo.listName || 'デフォルト';
+        if (note) note.textContent = todo.note || '';
+        if (checkbox) checkbox.checked = todo.completed;
+        container.appendChild(node);
+      });
+    }
+
+    function showTodoModal(todo) {
+      const content = document.getElementById('modalContent');
+      const titleElement = document.getElementById('modalTitle');
+      if (!content || !titleElement || !modal) return;
+      content.innerHTML = `
+        <form id="todoForm">
+          <label>タスク名
+            <input type="text" name="title" value="${todo?.title ?? ''}" required aria-required="true">
+          </label>
+          <label>期限
+            <input type="date" name="due" value="${todo?.due ? new Date(todo.due).toISOString().split('T')[0] : ''}">
+          </label>
+          <label>メモ
+            <textarea name="note" rows="4">${todo?.note ?? ''}</textarea>
+          </label>
+          <div style="display:flex;gap:0.5rem;justify-content:flex-end;">
+            <button type="button" class="md-icon-button" data-modal-cancel aria-label="キャンセル">
+              <span class="material-symbols-rounded" aria-hidden="true">cancel</span>
+            </button>
+            <button type="submit" class="md-icon-button" aria-label="保存">
+              <span class="material-symbols-rounded" aria-hidden="true">check</span>
+            </button>
+          </div>
+        </form>
+      `;
+      titleElement.textContent = todo ? 'タスクを編集' : 'タスクを追加';
+      modal.openModal('modalBackdrop');
+      const input = content.querySelector('[name="title"]');
+      input?.focus();
+      content.querySelector('[data-modal-cancel]')?.addEventListener('click', () => modal.closeModal('modalBackdrop'));
+      content.querySelector('#todoForm')?.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+        const payload = {
+          id: todo?.id,
+          title: formData.get('title'),
+          due: formData.get('due'),
+          note: formData.get('note'),
+        };
+        const existingIndex = state.todos.findIndex((item) => item.id === payload.id);
+        if (existingIndex >= 0) {
+          state.todos[existingIndex] = { ...state.todos[existingIndex], ...payload };
+          callServer('updateTodo', payload);
+        } else {
+          payload.id = generateId();
+          payload.completed = false;
+          payload.listName = 'デフォルト';
+          state.todos.unshift(payload);
+          callServer('createTodo', payload);
+        }
+        renderTodo();
+        modal.closeModal('modalBackdrop');
+      });
+    }
+
+    function initTodo() {
+      fetchAndRender({
+        fetcher: () => callServer('getTodoItems'),
+        renderer: (data) => {
+          const list = Array.isArray(data?.items) ? data.items : [];
+          state.todos = list.map((item) => ({
+            id: item.id,
+            title: item.title,
+            due: item.due,
+            listName: item.listName,
+            note: item.note,
+            completed: Boolean(item.completed),
+          }));
+          renderTodo();
+        },
+        onError: (message) => {
+          const empty = document.getElementById('todoEmptyState');
+          if (empty) {
+            empty.textContent = message;
+            empty.hidden = false;
+          }
+        },
+        onLoading: () => {
+          const empty = document.getElementById('todoEmptyState');
+          if (empty) {
+            empty.textContent = '読み込み中…';
+            empty.hidden = false;
+          }
+        },
+      });
+
+      document.getElementById('createTodo')?.addEventListener('click', () => showTodoModal(null));
+      document.getElementById('todoList')?.addEventListener('click', (event) => {
+        const action = event.target.closest('[data-action]');
+        if (!action) return;
+        const card = action.closest('.todo-card');
+        const id = card && card.dataset ? card.dataset.id : undefined;
+        if (!id) return;
+        if (action.dataset.action === 'edit') {
+          const todo = state.todos.find((item) => item.id === id);
+          showTodoModal(todo);
+        } else if (action.dataset.action === 'delete') {
+          state.todos = state.todos.filter((item) => item.id !== id);
+          callServer('deleteTodo', { id });
+          renderTodo();
+        }
+      });
+
+      document.getElementById('todoList')?.addEventListener('change', (event) => {
+        if (event.target.matches('[data-action="toggleComplete"]')) {
+          const card = event.target.closest('.todo-card');
+          const id = card && card.dataset ? card.dataset.id : undefined;
+          const completed = event.target.checked;
+          const todo = state.todos.find((item) => item.id === id);
+          if (todo) {
+            todo.completed = completed;
+            card.dataset.completed = String(completed);
+            callServer('toggleTodo', { id, completed });
+          }
+        }
+      });
+    }
+
+    modules.todo = { init: initTodo };
+  })();
+
+  (function() {
+    const callServer = core.api.callServer;
+    const fetchAndRender = core.api.fetchAndRender;
+    const state = {
+      folders: [],
+    };
+
+    function renderFolders() {
+      const container = document.getElementById('linkFolderList');
+      const emptyState = document.getElementById('linkEmptyState');
+      if (!container || !emptyState) return;
+      container.innerHTML = '';
+      const folderTemplate = document.getElementById('linkFolderTemplate');
+      const linkTemplate = document.getElementById('linkItemTemplate');
+      if (!state.folders.length) {
+        emptyState.hidden = false;
+        return;
+      }
+      emptyState.hidden = true;
+      state.folders.forEach((folder) => {
+        if (!folderTemplate || !folderTemplate.content.firstElementChild) return;
+        const folderNode = folderTemplate.content.firstElementChild.cloneNode(true);
+        folderNode.dataset.folderId = folder.id;
+        const name = folderNode.querySelector('[data-field="name"]');
+        const color = folderNode.querySelector('[data-field="color"]');
+        if (name) name.textContent = folder.name;
+        if (color) color.style.background = folder.color;
+        const list = folderNode.querySelector('.link-folder__list');
+        folder.links.forEach((link) => {
+          if (!linkTemplate || !linkTemplate.content.firstElementChild) return;
+          const linkNode = linkTemplate.content.firstElementChild.cloneNode(true);
+          linkNode.dataset.linkId = link.id;
+          const anchor = linkNode.querySelector('a');
+          if (anchor) {
+            anchor.textContent = link.title;
+            anchor.href = link.url;
+          }
+          list?.appendChild(linkNode);
+        });
+        container.appendChild(folderNode);
+      });
+    }
+
+    function setupFolderInteractions() {
+      const container = document.getElementById('linkFolderList');
+      if (!container) return;
+      container.addEventListener('click', (event) => {
+        const header = event.target.closest('.link-folder__header');
+        if (header) {
+          const folder = header.closest('.link-folder');
+          const collapsed = folder.dataset.collapsed === 'true';
+          folder.dataset.collapsed = collapsed ? 'false' : 'true';
+          folder.setAttribute('aria-expanded', collapsed ? 'true' : 'false');
+        }
+        const actionButton = event.target.closest('[data-action]');
+        if (actionButton) {
+          const folder = actionButton.closest('.link-folder');
+          const folderId = folder && folder.dataset ? folder.dataset.folderId : undefined;
+          switch (actionButton.dataset.action) {
+            case 'newLink':
+              callServer('createLink', { folderId });
+              break;
+            case 'menu':
+              callServer('openFolderMenu', { folderId });
+              break;
+            case 'open':
+              {
+                const anchor = actionButton.closest('.link-item')?.querySelector('a');
+                if (anchor) {
+                  window.open(anchor.href, '_blank');
+                }
+              }
+              break;
+            case 'remove':
+              {
+                const item = actionButton.closest('.link-item');
+                const linkId = item && item.dataset ? item.dataset.linkId : undefined;
+                callServer('removeLink', { folderId, linkId });
+                item?.remove();
+              }
+              break;
+            default:
+              break;
+          }
+        }
+      });
+
+      container.addEventListener('keydown', (event) => {
+        if (!event.target.matches('.link-item')) return;
+        const item = event.target;
+        const folder = item.closest('.link-folder');
+        const folderId = folder && folder.dataset ? folder.dataset.folderId : undefined;
+        const links = Array.from(folder.querySelectorAll('.link-item'));
+        const currentIndex = links.indexOf(item);
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          item.dataset.keyboardReorder = item.dataset.keyboardReorder === 'true' ? 'false' : 'true';
+        } else if (item.dataset.keyboardReorder === 'true' && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+          event.preventDefault();
+          const targetIndex = event.key === 'ArrowUp' ? currentIndex - 1 : currentIndex + 1;
+          if (targetIndex >= 0 && targetIndex < links.length) {
+            const targetNode = links[targetIndex];
+            if (event.key === 'ArrowUp') {
+              targetNode.before(item);
+            } else {
+              targetNode.after(item);
+            }
+            callServer('reorderLink', {
+              folderId,
+              linkId: item.dataset.linkId,
+              position: targetIndex,
+            });
+          }
+        } else if (event.key === 'Escape') {
+          item.dataset.keyboardReorder = 'false';
+        }
+      });
+    }
+
+    function initDragAndDrop() {
+      const container = document.getElementById('linkFolderList');
+      if (!container) return;
+      let dragged = null;
+
+      container.addEventListener('dragstart', (event) => {
+        const item = event.target.closest('.link-item');
+        if (!item) return;
+        dragged = item;
+        item.dataset.dragging = 'true';
+        event.dataTransfer.effectAllowed = 'move';
+      });
+
+      container.addEventListener('dragover', (event) => {
+        if (!dragged) return;
+        event.preventDefault();
+        const target = event.target.closest('.link-item');
+        if (!target || target === dragged) return;
+        const rect = target.getBoundingClientRect();
+        const halfway = rect.top + rect.height / 2;
+        if (event.clientY < halfway) {
+          target.before(dragged);
+        } else {
+          target.after(dragged);
+        }
+      });
+
+      container.addEventListener('drop', (event) => {
+        if (!dragged) return;
+        event.preventDefault();
+        const folder = dragged.closest('.link-folder');
+        const folderId = folder && folder.dataset ? folder.dataset.folderId : undefined;
+        const links = Array.from(folder.querySelectorAll('.link-item'));
+        const position = links.indexOf(dragged);
+        callServer('reorderLink', { folderId, linkId: dragged.dataset.linkId, position });
+        dragged.dataset.dragging = 'false';
+        dragged = null;
+      });
+
+      container.addEventListener('dragend', () => {
+        if (dragged) {
+          dragged.dataset.dragging = 'false';
+        }
+        dragged = null;
+      });
+    }
+
+    function initLinkFolders() {
+      fetchAndRender({
+        fetcher: () => callServer('getLinkFolders'),
+        renderer: (data) => {
+          const folders = Array.isArray(data?.folders) ? data.folders : [];
+          state.folders = folders.map((folder) => ({
+            id: folder.id,
+            name: folder.name,
+            color: folder.color || 'var(--md-sys-color-primary)',
+            links: (folder.links || []).map((link) => ({
+              id: link.id,
+              title: link.title,
+              url: link.url,
+            })),
+          }));
+          renderFolders();
+        },
+        onError: (message) => {
+          const empty = document.getElementById('linkEmptyState');
+          if (empty) {
+            empty.textContent = message;
+            empty.hidden = false;
+          }
+        },
+        onLoading: () => {
+          const empty = document.getElementById('linkEmptyState');
+          if (empty) {
+            empty.textContent = '読み込み中…';
+            empty.hidden = false;
+          }
+        },
+      });
+
+      setupFolderInteractions();
+      initDragAndDrop();
+    }
+
+    modules.linkFolders = { init: initLinkFolders };
+  })();
+
+  (function() {
+    const intervalManager = core.intervalManager;
+    const modal = core.modal;
+
+    class TimerController {
+      constructor(display, surface) {
+        this.display = display;
+        this.surface = surface;
+        this.remaining = 0;
+        this.duration = 0;
+      }
+
+      format(ms) {
+        const total = Math.max(0, Math.floor(ms / 1000));
+        const hours = String(Math.floor(total / 3600)).padStart(2, '0');
+        const minutes = String(Math.floor((total % 3600) / 60)).padStart(2, '0');
+        const seconds = String(total % 60).padStart(2, '0');
+        return `${hours}:${minutes}:${seconds}`;
+      }
+
+      updateDisplay() {
+        if (this.display) {
+          this.display.textContent = this.format(this.remaining);
+        }
+      }
+
+      start(durationMs) {
+        this.duration = durationMs;
+        this.remaining = durationMs;
+        if (this.surface) {
+          this.surface.dataset.state = 'active';
+        }
+        this.updateDisplay();
+        intervalManager.create('timer-countdown', () => this.tick(), 1000);
+      }
+
+      tick() {
+        this.remaining -= 1000;
+        if (this.remaining <= 0) {
+          this.stop();
+          this.surface?.dispatchEvent(new CustomEvent('timer:finished'));
+        } else {
+          this.updateDisplay();
+        }
+      }
+
+      pause() {
+        intervalManager.clear('timer-countdown');
+        if (this.surface) {
+          this.surface.dataset.state = 'paused';
+        }
+      }
+
+      resume() {
+        if (this.surface) {
+          this.surface.dataset.state = 'active';
+        }
+        intervalManager.create('timer-countdown', () => this.tick(), 1000);
+      }
+
+      stop() {
+        intervalManager.clear('timer-countdown');
+        if (this.surface) {
+          this.surface.dataset.state = 'idle';
+        }
+        this.remaining = 0;
+        this.updateDisplay();
+      }
+    }
+
+    function renderTimerModal() {
+      const content = document.getElementById('modalContent');
+      const titleElement = document.getElementById('modalTitle');
+      if (!content || !titleElement || !modal) return;
+      content.innerHTML = `
+        <section class="timer-surface" data-state="idle">
+          <h2 style="margin:0;font-size:1.25rem;">フォーカスタイマー</h2>
+          <div class="timer-display">00:00:00</div>
+          <div class="timer-inputs">
+            <label>時間<input type="number" min="0" max="23" value="0" data-field="hours"></label>
+            <label>分<input type="number" min="0" max="59" value="25" data-field="minutes"></label>
+            <label>秒<input type="number" min="0" max="59" value="0" data-field="seconds"></label>
+          </div>
+          <div class="timer-quick-actions">
+            <button type="button" data-duration="300000">5分</button>
+            <button type="button" data-duration="900000">15分</button>
+            <button type="button" data-duration="1500000">25分</button>
+            <button type="button" data-duration="3600000">60分</button>
+          </div>
+          <div class="timer-controls">
+            <button type="button" class="primary" data-action="start">開始</button>
+            <button type="button" class="secondary" data-action="pause">一時停止</button>
+            <button type="button" class="secondary" data-action="resume">再開</button>
+            <button type="button" class="danger" data-action="stop">リセット</button>
+          </div>
+        </section>
+      `;
+      titleElement.textContent = 'フォーカスタイマー';
+      const surface = content.querySelector('.timer-surface');
+      const display = content.querySelector('.timer-display');
+      const controller = new TimerController(display, surface);
+
+      const getDurationFromInputs = () => {
+        const hours = Number(content.querySelector('[data-field="hours"]').value) || 0;
+        const minutes = Number(content.querySelector('[data-field="minutes"]').value) || 0;
+        const seconds = Number(content.querySelector('[data-field="seconds"]').value) || 0;
+        return (hours * 3600 + minutes * 60 + seconds) * 1000;
+      };
+
+      content.querySelectorAll('.timer-quick-actions button').forEach((button) => {
+        button.addEventListener('click', () => {
+          const duration = Number(button.dataset.duration);
+          controller.start(duration);
+        });
+      });
+
+      content.querySelector('.timer-controls')?.addEventListener('click', (event) => {
+        const action = event.target.closest('[data-action]');
+        if (!action) return;
+        if (action.dataset.action === 'start') {
+          controller.start(getDurationFromInputs());
+        } else if (action.dataset.action === 'pause') {
+          controller.pause();
+        } else if (action.dataset.action === 'resume') {
+          controller.resume();
+        } else if (action.dataset.action === 'stop') {
+          controller.stop();
+        }
+      });
+
+      surface?.addEventListener('timer:finished', () => {
+        if (!surface) return;
+        surface.dataset.state = 'finished';
+        surface.animate(
+          [
+            { transform: 'scale(1)', boxShadow: 'var(--md-sys-elevation-level3)' },
+            { transform: 'scale(1.05)', boxShadow: '0 24px 40px rgba(103,80,164,0.4)' },
+            { transform: 'scale(1)', boxShadow: 'var(--md-sys-elevation-level3)' },
+          ],
+          { duration: 600, easing: 'ease-out' }
+        );
+      });
+    }
+
+    function initTimerModalTrigger() {
+      document.getElementById('openTimer')?.addEventListener('click', () => {
+        renderTimerModal();
+        modal?.openModal('modalBackdrop');
+      });
+    }
+
+    modules.timer = { init: initTimerModalTrigger };
+  })();
+})(window);
+</script>

@@ -1,0 +1,361 @@
+<script>
+(function(window) {
+  const global = window.NexusHub = window.NexusHub || {};
+  global.core = global.core || {};
+  const core = global.core;
+
+  (function() {
+    const THEME_KEY = 'nexushub-theme';
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
+    const observers = new Set();
+
+    function applyTheme(theme) {
+      const normalized = theme === 'dark' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', normalized);
+      if (document.body) {
+        document.body.dataset.theme = normalized;
+      }
+      try {
+        localStorage.setItem(THEME_KEY, normalized);
+      } catch (error) {
+        console.warn('テーマ設定の保存に失敗しました', error);
+      }
+      observers.forEach((handler) => handler(normalized));
+    }
+
+    function detectTheme() {
+      try {
+        const saved = localStorage.getItem(THEME_KEY);
+        if (saved === 'dark' || saved === 'light') {
+          return saved;
+        }
+      } catch (error) {
+        console.warn('テーマ設定の読み込みに失敗しました', error);
+      }
+      return prefersDark.matches ? 'dark' : 'light';
+    }
+
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme');
+      applyTheme(current === 'dark' ? 'light' : 'dark');
+    }
+
+    function initThemeToggle(button) {
+      if (!button) return;
+      const updateButton = (theme) => {
+        button.setAttribute('aria-pressed', theme === 'dark');
+        const icon = button.querySelector('.material-symbols-rounded');
+        if (icon) {
+          icon.textContent = theme === 'dark' ? 'dark_mode' : 'light_mode';
+        }
+      };
+      const initial = detectTheme();
+      applyTheme(initial);
+      updateButton(initial);
+      observers.add(updateButton);
+      button.addEventListener('click', () => {
+        toggleTheme();
+        updateButton(document.documentElement.getAttribute('data-theme'));
+      });
+    }
+
+    function onThemeChange(handler) {
+      if (typeof handler === 'function') {
+        observers.add(handler);
+      }
+    }
+
+    prefersDark.addEventListener('change', (event) => {
+      applyTheme(event.matches ? 'dark' : 'light');
+    });
+
+    core.theme = {
+      applyTheme,
+      detectTheme,
+      toggleTheme,
+      initThemeToggle,
+      onThemeChange,
+    };
+  })();
+
+  (function() {
+    function hasGoogleScriptRun() {
+      return typeof google !== 'undefined' && google.script && google.script.run;
+    }
+
+    function callServer(functionName, payload) {
+      const requestPayload = payload || {};
+      if (!hasGoogleScriptRun()) {
+        let data = null;
+        switch (functionName) {
+          case 'getGmailData':
+            data = {
+              unreadCount: 2,
+              emails: [
+                {
+                  threadId: 'mock-thread-1',
+                  subject: 'デザインレビューのご案内',
+                  from: 'Product Team',
+                  snippet: '最新のUI設計についてコメントをお願いします。',
+                  date: Date.now(),
+                  messageCount: 3,
+                },
+                {
+                  threadId: 'mock-thread-2',
+                  subject: '請求書の送付',
+                  from: 'Finance',
+                  snippet: '4月分の請求書を送付いたします。',
+                  date: Date.now() - 3600000,
+                  messageCount: 1,
+                },
+              ],
+            };
+            break;
+          case 'getChatData':
+            data = {
+              conversations: [
+                {
+                  id: 'chat-1',
+                  title: 'UX Guild',
+                  snippet: 'Figmaファイルを更新しました。',
+                  author: 'Ayaka',
+                  unreadCount: 5,
+                  classification: 'spaces',
+                  url: '#',
+                },
+                {
+                  id: 'chat-2',
+                  title: 'Taro Yamamoto',
+                  snippet: '今日の1on1よろしくお願いします。',
+                  author: 'Taro',
+                  unreadCount: 1,
+                  classification: 'dm',
+                  url: '#',
+                },
+              ],
+            };
+            break;
+          case 'getTodoItems':
+            data = {
+              items: [
+                {
+                  id: 'todo-1',
+                  title: 'M3トークン仕様を整理',
+                  due: new Date().toISOString(),
+                  listName: 'Design',
+                  note: '配色とタイプスケールを決定する',
+                  completed: false,
+                },
+              ],
+            };
+            break;
+          case 'getCalendarEvents':
+            data = {
+              events: [
+                {
+                  id: 'event-1',
+                  title: 'Daily Standup',
+                  start: Date.now() + 3600000,
+                  end: Date.now() + 5400000,
+                  description: '進捗共有とブロッカー確認',
+                },
+              ],
+            };
+            break;
+          case 'getLinkFolders':
+            data = {
+              folders: [
+                {
+                  id: 'folder-1',
+                  name: 'プロダクト',
+                  color: '#6750a4',
+                  links: [
+                    { id: 'link-1', title: 'デザインガイド', url: 'https://m3.material.io/' },
+                    { id: 'link-2', title: 'ロードマップ', url: '#' },
+                  ],
+                },
+              ],
+            };
+            break;
+          default:
+            data = null;
+            break;
+        }
+        return Promise.resolve({ success: true, data });
+      }
+      return new Promise((resolve) => {
+        google.script.run
+          .withSuccessHandler((response) => resolve(response))
+          .withFailureHandler((error) => {
+            const message = error && error.message ? error.message : String(error);
+            resolve({ success: false, error: message });
+          })[functionName](requestPayload);
+      });
+    }
+
+    async function fetchAndRender(options) {
+      const fetcher = options.fetcher;
+      const renderer = options.renderer;
+      const onLoading = options.onLoading;
+      const onError = options.onError;
+      try {
+        if (typeof onLoading === 'function') {
+          onLoading();
+        }
+        const response = await fetcher();
+        if (response && response.success) {
+          renderer(response.data ?? response);
+        } else {
+          const message = response && response.error ? response.error : 'データ取得に失敗しました。';
+          if (typeof onError === 'function') {
+            onError(message);
+          }
+        }
+      } catch (error) {
+        console.error(error);
+        if (typeof onError === 'function') {
+          onError(error && error.message ? error.message : '予期せぬエラーが発生しました。');
+        }
+      }
+    }
+
+    core.api = {
+      callServer,
+      fetchAndRender,
+    };
+  })();
+
+  (function() {
+    class IntervalManager {
+      constructor() {
+        this.handlers = new Map();
+        document.addEventListener('visibilitychange', () => {
+          if (document.hidden) {
+            this.pauseAll();
+          } else {
+            this.resumeAll();
+          }
+        });
+      }
+
+      create(key, fn, delay) {
+        this.clear(key);
+        const handler = {
+          fn,
+          delay,
+          timer: window.setInterval(fn, delay),
+          paused: false,
+        };
+        this.handlers.set(key, handler);
+        return () => this.clear(key);
+      }
+
+      pauseAll() {
+        this.handlers.forEach((handler) => {
+          if (!handler.paused) {
+            window.clearInterval(handler.timer);
+            handler.paused = true;
+          }
+        });
+      }
+
+      resumeAll() {
+        this.handlers.forEach((handler) => {
+          if (handler.paused) {
+            handler.timer = window.setInterval(handler.fn, handler.delay);
+            handler.paused = false;
+          }
+        });
+      }
+
+      clear(key) {
+        if (this.handlers.has(key)) {
+          const handler = this.handlers.get(key);
+          window.clearInterval(handler.timer);
+          this.handlers.delete(key);
+        }
+      }
+    }
+
+    core.intervalManager = new IntervalManager();
+  })();
+
+  (function() {
+    const activeModals = new Map();
+    let lastFocusedElement = null;
+
+    function getFocusableElements(container) {
+      return Array.from(
+        container.querySelectorAll(
+          'a[href], button:not([disabled]), textarea, input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((el) => el.offsetParent !== null || el instanceof HTMLDialogElement);
+    }
+
+    function trapFocus(event) {
+      const modalId = event.currentTarget.id;
+      const focusables = activeModals.get(modalId);
+      if (!focusables || focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (event.key === 'Tab') {
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      } else if (event.key === 'Escape') {
+        closeModal(modalId);
+      }
+    }
+
+    function openModal(id) {
+      const backdrop = document.getElementById(id);
+      if (!backdrop) return;
+      lastFocusedElement = document.activeElement;
+      backdrop.dataset.visible = 'true';
+      backdrop.setAttribute('aria-hidden', 'false');
+      const focusables = getFocusableElements(backdrop);
+      activeModals.set(id, focusables);
+      document.body.style.overflow = 'hidden';
+      backdrop.addEventListener('keydown', trapFocus);
+      if (focusables.length) {
+        focusables[0].focus();
+      }
+    }
+
+    function closeModal(id) {
+      const backdrop = document.getElementById(id);
+      if (!backdrop) return;
+      backdrop.dataset.visible = 'false';
+      backdrop.setAttribute('aria-hidden', 'true');
+      backdrop.removeEventListener('keydown', trapFocus);
+      activeModals.delete(id);
+      document.body.style.overflow = '';
+      if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+        lastFocusedElement.focus();
+      }
+    }
+
+    function bindModalTriggers(config) {
+      const openSelector = config.openSelector;
+      const closeSelector = config.closeSelector;
+      const modalId = config.modalId;
+      document.querySelectorAll(openSelector).forEach((trigger) => {
+        trigger.addEventListener('click', () => openModal(modalId));
+      });
+      document.querySelectorAll(closeSelector).forEach((trigger) => {
+        trigger.addEventListener('click', () => closeModal(modalId));
+      });
+    }
+
+    core.modal = {
+      openModal,
+      closeModal,
+      bindModalTriggers,
+    };
+  })();
+})(window);
+</script>
