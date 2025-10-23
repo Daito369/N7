@@ -1,0 +1,103 @@
+:root {
+  color-scheme: light;
+  --md-ref-typeface-brand: 'Google Sans Text', 'Noto Sans JP', system-ui, sans-serif;
+  --md-ref-typeface-plain: 'Noto Sans JP', system-ui, sans-serif;
+  --md-sys-typescale-title-large-size: 1.5rem;
+  --md-sys-typescale-title-large-line-height: 2rem;
+  --md-sys-typescale-title-medium-size: 1.25rem;
+  --md-sys-typescale-title-medium-line-height: 1.75rem;
+  --md-sys-typescale-body-large-size: 1rem;
+  --md-sys-typescale-body-large-line-height: 1.5rem;
+  --md-sys-typescale-body-medium-size: 0.875rem;
+  --md-sys-typescale-body-medium-line-height: 1.4rem;
+  --md-sys-typescale-label-large-size: 0.875rem;
+  --md-sys-typescale-label-large-line-height: 1.25rem;
+  --md-sys-elevation-level1: 0 1px 2px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.24);
+  --md-sys-elevation-level2: 0 3px 6px rgba(15, 23, 42, 0.14), 0 2px 4px rgba(15, 23, 42, 0.22);
+  --md-sys-elevation-level3: 0 8px 16px rgba(15, 23, 42, 0.16), 0 6px 12px rgba(15, 23, 42, 0.24);
+  --md-sys-shape-corner-small: 8px;
+  --md-sys-shape-corner-medium: 12px;
+  --md-sys-shape-corner-large: 18px;
+  --md-sys-spacing-xs: 0.5rem;
+  --md-sys-spacing-sm: 0.75rem;
+  --md-sys-spacing-md: 1rem;
+  --md-sys-spacing-lg: 1.5rem;
+  --md-sys-spacing-xl: 2rem;
+  --md-sys-motion-duration-short: 120ms;
+  --md-sys-motion-duration-medium: 200ms;
+  --md-sys-motion-duration-long: 320ms;
+  --md-sys-motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  --md-sys-color-primary: #6750a4;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #eaddff;
+  --md-sys-color-on-primary-container: #21005d;
+  --md-sys-color-secondary: #625b71;
+  --md-sys-color-on-secondary: #ffffff;
+  --md-sys-color-secondary-container: #e8def8;
+  --md-sys-color-on-secondary-container: #1d192b;
+  --md-sys-color-tertiary: #7d5260;
+  --md-sys-color-on-tertiary: #ffffff;
+  --md-sys-color-tertiary-container: #ffd8e4;
+  --md-sys-color-on-tertiary-container: #31111d;
+  --md-sys-color-surface: #fef7ff;
+  --md-sys-color-surface-container: #f3edf7;
+  --md-sys-color-surface-container-high: #ece6f0;
+  --md-sys-color-background: #fef7ff;
+  --md-sys-color-on-surface: #1d1b20;
+  --md-sys-color-on-surface-variant: #49454f;
+  --md-sys-color-outline: #79747e;
+  --md-sys-color-outline-variant: #cac4d0;
+  --md-sys-color-error: #b3261e;
+  --md-sys-color-on-error: #ffffff;
+  --md-sys-color-success: #0e7c47;
+  --md-sys-color-on-success: #ffffff;
+  --md-sys-color-surface-tint: rgba(103, 80, 164, 0.12);
+  --md-sys-color-focus-ring: rgba(103, 80, 164, 0.45);
+  --md-sys-color-hover-overlay: rgba(103, 80, 164, 0.08);
+  --md-sys-color-pressed-overlay: rgba(103, 80, 164, 0.12);
+  --md-sys-color-surface-inverse: #322f35;
+  --md-sys-color-on-surface-inverse: #f4eff4;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --md-sys-color-primary: #d0bcff;
+  --md-sys-color-on-primary: #381e72;
+  --md-sys-color-primary-container: #4f378b;
+  --md-sys-color-on-primary-container: #eaddff;
+  --md-sys-color-secondary: #ccc2dc;
+  --md-sys-color-on-secondary: #332d41;
+  --md-sys-color-secondary-container: #4a4458;
+  --md-sys-color-on-secondary-container: #e8def8;
+  --md-sys-color-tertiary: #efb8c8;
+  --md-sys-color-on-tertiary: #492532;
+  --md-sys-color-tertiary-container: #633b48;
+  --md-sys-color-on-tertiary-container: #ffd8e4;
+  --md-sys-color-surface: #141218;
+  --md-sys-color-surface-container: #1d1b20;
+  --md-sys-color-surface-container-high: #211f26;
+  --md-sys-color-background: #141218;
+  --md-sys-color-on-surface: #e6e0e9;
+  --md-sys-color-on-surface-variant: #cac4d0;
+  --md-sys-color-outline: #938f99;
+  --md-sys-color-outline-variant: #49454f;
+  --md-sys-color-error: #f2b8b5;
+  --md-sys-color-on-error: #601410;
+  --md-sys-color-success: #8fd8a3;
+  --md-sys-color-on-success: #00391e;
+  --md-sys-color-surface-tint: rgba(208, 188, 255, 0.16);
+  --md-sys-color-focus-ring: rgba(208, 188, 255, 0.5);
+  --md-sys-color-hover-overlay: rgba(208, 188, 255, 0.12);
+  --md-sys-color-pressed-overlay: rgba(208, 188, 255, 0.2);
+  --md-sys-color-surface-inverse: #e6e0e9;
+  --md-sys-color-on-surface-inverse: #322f35;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --md-sys-motion-duration-short: 0ms;
+    --md-sys-motion-duration-medium: 0ms;
+    --md-sys-motion-duration-long: 0ms;
+    --md-sys-motion-easing-standard: linear;
+  }
+}
